@@ -1,0 +1,60 @@
+// blog-app-frontend/src/App.js
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import Header from './components/Header';
+import Footer from './components/Footer';
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
+import BlogListPage from './pages/BlogListPage';
+import BlogDetailPage from './pages/BlogDetailPage';
+import CreateBlogPage from './pages/CreateBlogPage';
+import EditBlogPage from './pages/EditBlogPage'; // You'll create this
+
+const PrivateRoute = ({ children }) => {
+    const { isAuthenticated, loading } = useAuth();
+
+    if (loading) {
+        return <div>Loading...</div>; // Or a spinner
+    }
+
+    return isAuthenticated ? children : <Navigate to="/login" replace />;
+};
+
+function App() {
+    return (
+        <Router>
+            <AuthProvider>
+                <Header />
+                <main style={{ padding: '20px', minHeight: '80vh' }}>
+                    <Routes>
+                        <Route path="/login" element={<LoginPage />} />
+                        <Route path="/signup" element={<SignupPage />} />
+                        <Route path="/" element={<BlogListPage />} />
+                        <Route path="/posts/:id" element={<BlogDetailPage />} />
+                        <Route
+                            path="/create-blog"
+                            element={
+                                <PrivateRoute>
+                                    <CreateBlogPage />
+                                </PrivateRoute>
+                            }
+                        />
+                        <Route
+                            path="/edit-blog/:id"
+                            element={
+                                <PrivateRoute>
+                                    <EditBlogPage />
+                                </PrivateRoute>
+                            }
+                        />
+                        {/* Add a catch-all for 404 if desired */}
+                    </Routes>
+                </main>
+                <Footer />
+            </AuthProvider>
+        </Router>
+    );
+}
+
+export default App;
