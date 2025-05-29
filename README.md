@@ -1,51 +1,63 @@
-// blog-app-backend/db.js
-const { Pool } = require('pg');
-require('dotenv').config();
+Project Structure:
+   blog-app-backend/
+├── node_modules/
+├── .env
+├── package.json
+├── server.js
+├── db.js
+├── routes/
+│   ├── auth.js
+│   └── posts.js
+└── middleware/
+    └── auth.js
 
-const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_DATABASE,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT,
-    ssl: {
-        rejectUnauthorized: false // Required for some cloud databases
-    }
-});
 
-pool.connect((err, client, done) => {
-    if (err) {
-        console.error('Database connection error:', err);
-        return;
-    }
-    console.log('Connected to the database');
-    // You might want to create tables here if they don't exist
-    client.query(`
-        CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            email VARCHAR(255) UNIQUE NOT NULL,
-            password VARCHAR(255) NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
 
-        CREATE TABLE IF NOT EXISTS posts (
-            id SERIAL PRIMARY KEY,
-            user_id INT NOT NULL,
-            title VARCHAR(255) NOT NULL,
-            content TEXT NOT NULL,
-            published BOOLEAN DEFAULT TRUE,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        );
-    `, (err, res) => {
-        done();
-        if (err) {
-            console.error('Error creating tables:', err);
-        } else {
-            console.log('Tables checked/created successfully');
-        }
-    });
-});
+  * Project Structure (simplified):
+   blog-app-frontend/
+├── node_modules/
+├── public/
+├── src/
+│   ├── App.js
+│   ├── index.js
+│   ├── components/
+│   │   ├── Header.js
+│   │   ├── Footer.js
+│   │   └── BlogCard.js
+│   ├── pages/
+│   │   ├── LoginPage.js
+│   │   ├── SignupPage.js
+│   │   ├── BlogListPage.js
+│   │   ├── BlogDetailPage.js
+│   │   └── CreateBlogPage.js
+│   ├── services/
+│   │   └── api.js
+│   └── context/
+│       └── AuthContext.js
+├── package.json
 
-module.exports = pool;# unify-assessment
+
+
+
+SignupPage.js: Similar form to login, uses register from AuthContext.
+ * BlogListPage.js:
+   * Fetches posts from /api/posts using api.get('/posts?page=${page}&limit=${limit}').
+   * Displays a list of BlogCard components.
+   * Implements pagination controls.
+ * BlogDetailPage.js:
+   * Uses useParams to get the blog ID from the URL (/posts/:id).
+   * Fetches a single post from /api/posts/:id.
+   * Displays full title and content.
+   * Includes edit/delete buttons if the logged-in user is the author (you'll need to pass user_id in the token or make an additional API call to check ownership).
+ * CreateBlogPage.js:
+   * Form for title and content.
+   * Uses api.post('/posts', { title, content }) to create.
+   * Accessible only via PrivateRoute.
+ * EditBlogPage.js:
+   * Similar to CreateBlogPage, but pre-fills the form with existing blog data.
+   * Uses api.put('/posts/:id', { title, content, published }) to update.
+   * Accessible only via PrivateRoute and only by the author.
+Responsive Design:
+ * Use CSS Flexbox or Grid for layouts.
+ * Employ media queries for different screen sizes.
+ * Consider using a UI library like Material-UI or Ant Design for pre-built responsive components, or a CSS framework like Bootstrap/Tailwind CSS. (Not included in snippets for brevity).
