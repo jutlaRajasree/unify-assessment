@@ -1,0 +1,129 @@
+// blog-app-backend/routes/posts.js
+const express = require('express');
+const router = express.Router();
+const pool = require('../db');
+const auth = require('../middleware/auth'); // Our authentication middleware
+
+// Create a blog post (Auth required)
+router.post('/', auth, async (req, res) => {
+    const { title, content } = req.body;
+    const userId = req.user.id; // From auth middleware
+
+    try {
+        const newPost = await pool.query(
+            'INSERT INTO posts (user_id, title, content) VALUES ($1, $2, $3) RETURNING *',
+            [userId, title, content]
+        );
+        res.json(newPost.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server error');
+    }
+});
+
+// Get all blog posts (Public, with pagination)
+router.get('/', async (req, res) => {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+
+    try {
+        const totalPostsResult = await pool.query('SELECT COUNT(*) FROM posts WHERE published = TRUE');
+        const totalPosts = parseInt(totalPostsResult.rows[0].count);
+        const totalPages = Math.ceil(totalPosts / limit);
+
+        const posts = await pool.query(
+            `SELECT p.id, p.title, p.content, p.created_at, u.email AS author_email
+             FROM posts p JOIN users u ON p.user_id = u.id
+             WHERE p.published = TRUE
+             ORDER BY p.created_at DESC
+             LIMIT $1 OFFSET $2`,
+            [limit, offset]
+        );
+        res.json({
+            posts: posts.rows,
+            pagination: {
+                currentPage: page,
+                totalPages: totalPages,
+                totalPosts: totalPosts,
+                hasNextPage: page < totalPages,
+                hasPreviousPage: page > 1
+            }
+        });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server error');
+    }
+});
+
+// Get a single blog post by ID (Public)
+router.get('/:id', async (req, res) => {
+    try {
+        const post = await pool.query(
+            `SELECT p.id, p.title, p.content, p.created_at, u.email AS author_email
+             FROM posts p JOIN users u ON p.user_id = u.id
+             WHERE p.id = $1 AND p.published = TRUE`,
+            [req.params.id]
+        );
+
+        if (post.rows.length === 0) {
+            return res.status(404).json({ msg: 'Post not found' });
+        }
+        res.json(post.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server error');
+    }
+});
+
+// Update a blog post (Auth required, only by author)
+router.put('/:id', auth, async (req, res) => {
+    const { title, content, published } = req.body;
+    const postId = req.params.id;
+    const userId = req.user.id;
+
+    try {
+        // Check if the user is the author of the post
+        const existingPost = await pool.query('SELECT user_id FROM posts WHERE id = $1', [postId]);
+        if (existingPost.rows.length === 0) {
+            return res.status(404).json({ msg: 'Post not found' });
+        }
+        if (existingPost.rows[0].user_id !== userId) {
+            return res.status(403).json({ msg: 'You are not authorized to update this post' });
+        }
+
+        const updatedPost = await pool.query(
+            'UPDATE posts SET title = $1, content = $2, published = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4 RETURNING *',
+            [title, content, published, postId]
+        );
+        res.json(updatedPost.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server error');
+    }
+});
+
+// Delete a blog post (Auth required, only by author)
+router.delete('/:id', auth, async (req, res) => {
+    const postId = req.params.id;
+    const userId = req.user.id;
+
+    try {
+        // Check if the user is the author of the post
+        const existingPost = await pool.query('SELECT user_id FROM posts WHERE id = $1', [postId]);
+        if (existingPost.rows.length === 0) {
+            return res.status(404).json({ msg: 'Post not found' });
+        }
+        if (existingPost.rows[0].user_id !== userId) {
+            return res.status(403).json({ msg: 'You are not authorized to delete this post' });
+        }
+
+        await pool.query('DELETE FROM posts WHERE id = $1', [postId]);
+        res.json({ msg: 'Post removed' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server error');
+    }
+});
+
+module.exports = router;
